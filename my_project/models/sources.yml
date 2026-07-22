@@ -1,0 +1,34 @@
+version: 2
+
+# Kildetabeller (sources) er rådata som arrangøren har lastet inn i skjemaet
+# FAGGRUPPE_DB.RAW. Du LESER fra dette skjemaet, men bygger ALDRI dine egne
+# modeller inn i det (de havner i ditt eget skjema, se profiles.yml).
+#
+# 🔎 Rådataen er "rå": kolonnene har mikset store/små bokstaver (f.eks.
+#    "strekningId") og noen tabeller er dypt nøstet. Bronselaget rydder opp.
+#    Referer alltid til kilden med source(), f.eks. {{ source('svv', 'reisetider_raw') }}.
+#
+# 💡 Merk: kildene har suffikset "_raw" i dbt (name), men peker på de faktiske
+#    tabellene i RAW via 'identifier'. Grunnen er at bronse-modellene våre heter
+#    reisetider/strekninger/timetrafikk – en dbt-modell kan ikke hete det samme
+#    som kilden den leser fra (det gir en "cycle").
+
+sources:
+  - name: svv
+    database: FAGGRUPPE_DB
+    schema: RAW
+    description: "Rådata fra Statens vegvesen, lastet inn fra BigQuery via GCS/Parquet."
+    tables:
+      - name: reisetider_raw
+        identifier: reisetider
+        description: "Reisetider publisert ca. hvert 5. minutt per strekning."
+      # Alternativ, identisk tabell hvis den partisjonerte eksporten skulle feile:
+      - name: reisetider_unpartitioned_raw
+        identifier: reisetider_unpartitioned
+        description: "Samme som reisetider, men eksportert upartisjonert."
+      - name: strekninger_raw
+        identifier: strekninger
+        description: "Strekninger med id og navn (geografi-kolonnen 'koordinater' er droppet ved eksport)."
+      - name: timetrafikk_raw
+        identifier: timetrafikk
+        description: "Timetrafikk fra Vegvesenets API – dypt nøstet rådata."

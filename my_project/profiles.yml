@@ -1,0 +1,28 @@
+# Lokal dbt-profil for denne workshopen.
+# dbt bruker denne fila (fordi den ligger i arbeidsmappa) i stedet for
+# ~/.dbt/profiles.yml, så din globale profil forblir urørt.
+# Kjør dbt fra inne i denne mappa:  cd my_project && dbt debug
+#
+# 👉 DETTE MÅ DU ENDRE (hver deltaker har sin egen Snowflake-bruker):
+#    user     -> ditt brukernavn (fra arrangøren)
+#    password -> ditt passord (fra arrangøren)
+#    schema   -> DITT EGET skjema, f.eks. WORKSHOP_OLA
+#
+# ⚠️ IKKE sett schema til RAW! Det er KILDESKJEMAET (felles rådata).
+#    Dine modeller skal bygges i ditt eget skjema. Kilden leser du fra via
+#    models/sources.yml. dbt oppretter skjemaet ditt automatisk ved første
+#    `dbt run` hvis brukeren din har rett til å lage skjema (se README).
+
+my_project:
+  target: dev
+  outputs:
+    dev:
+      type: snowflake
+      account: ZTGOEZP-FH49182
+      user: DITT_BRUKERNAVN            # 👈 endre
+      password: DITT_PASSORD           # 👈 endre
+      role: WORKSHOP                   # rollen arrangøren har gitt deg (evt. ACCOUNTADMIN i eget testmiljø)
+      database: FAGGRUPPE_DB
+      warehouse: COMPUTE_WH
+      schema: WORKSHOP_DITT_NAVN       # 👈 endre til ditt eget skjema
+      threads: 4

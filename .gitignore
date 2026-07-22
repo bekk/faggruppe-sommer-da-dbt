@@ -1,0 +1,15 @@
+dbt-venv/
+**/target/
+logs/
+dbt_packages/
+__pycache__/
+*.pyc
+
+# Arrangørens egne notater – skal aldri pushes
+ARRANGOR.md
+
+# dbt sin lokale anonyme bruker-id (per maskin)
+.user.yml
+
+# macOS
+.DS_Store

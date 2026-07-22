@@ -1,0 +1,40 @@
+version: 2
+
+# Her dokumenterer vi modellene og legger på enkle tester som dbt kjører med
+# `dbt test`. Beskrivelsene dukker opp i `dbt docs`. Du kan gjerne utvide denne
+# fila etter hvert som du lager flere modeller.
+
+models:
+  - name: reisetider
+    description: "🥉 Bronse: reisetider fra Vegvesenet med opprydda kolonnenavn."
+
+  - name: strekninger
+    description: "🥉 Bronse: strekninger med id og navn (opprydda kolonnenavn)."
+    columns:
+      - name: id
+        description: "Unik id for strekningen."
+        # Fjern kommentarene under når bronse-modellen er ferdig, for å teste at id er unik og ikke null:
+        # data_tests:
+        #   - unique
+        #   - not_null
+
+  - name: timetrafikk
+    description: "🥉 Bronse (ferdig laget): totaltrafikk per punkt (trpId) per time, pakket ut fra nøstet rådata."
+
+  - name: reisetider_med_strekninger
+    description: "🥈 Sølv: reisetider koblet mot strekningsnavn, i norsk tid."
+
+  - name: timetrafikk_strekning
+    description: "🥈 Sølv: timetrafikk koblet til strekning via strekning_trp."
+
+  - name: reisetider_minmax
+    description: "🥇 Gull: korteste og lengste reisetid per strekning."
+
+  - name: reisetider_med_time
+    description: "🥇 Gull: gjennomsnittlig reisetid per strekning per time."
+
+  - name: reisetider_med_trafikk
+    description: "🥇 Gull: reisetider og trafikktall slått sammen per time."
+
+  - name: reisetider_trafikk_klokketime
+    description: "🥇 Gull (view): typisk reisetid og trafikk per ukedag og klokketime."
