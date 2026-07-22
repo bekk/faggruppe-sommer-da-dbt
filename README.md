@@ -3,9 +3,7 @@
 En introduksjon til **dbt** og **medaljearkitektur** (bronse/sølv/gull) med reisetids-data
 fra Statens vegvesen — kjørt mot **Snowflake**.
 
-Dette er den samme workshopen som den originale BigQuery-versjonen
-(`jogga_dbt_intro_workshop.ipynb`), men skrevet om til en README du følger steg for steg,
-og tilpasset ekte, litt rotete rådata i Snowflake. Du løser oppgavene ved å skrive kode
+Du løser oppgavene ved å skrive kode
 direkte i `.sql`-filene i `my_project/` — hver fil er markert med `-- 👉 SKRIV KODEN DIN HER`.
 Sitter du fast, kan du åpne **Løsningsforslag** under hver oppgave.
 
@@ -331,11 +329,6 @@ Join reisetider mot strekninger på `reisetider.strekningId = strekninger.id`.
 > 🚨 **NB!** Nå bygger vi videre på **andre modeller** (ikke kilder). Bruk
 > [`ref()`-funksjonen](https://docs.getdbt.com/reference/dbt-jinja-functions/ref).
 
-> 🔎 **Kjenner du BigQuery-versjonen?** Der la vi inn `partition_by = {...}` i config-blokken
-> for å partisjonere tabellen på dato. Det trenger vi ikke her: Snowflake deler automatisk
-> tabellene inn i **micro-partitions** og holder styr på dem selv. Vil du likevel styre
-> lagringen på store tabeller, heter tilsvarende knapp `cluster_by` i Snowflake.
-
 <details>
 <summary>💡 Løsningsforslag</summary>
 
@@ -362,11 +355,6 @@ where r.reisetidVarighetSekunder is null
 Modellen skal gi ca. **21,4 mill.** rader — altså like mange som bronsemodellen. Får du
 _vesentlig_ flere (200 mill.+), har du glemt å deduplisere `strekninger` i oppgave 2.1b 👆
 
-> 🔎 **Snowflake vs BigQuery:** BigQuery konverterer tidssone med `DATETIME(ts, "Europe/Oslo")`.
-> I Snowflake bruker vi `CONVERT_TIMEZONE('UTC', 'Europe/Oslo', ts)` (rådataen er lagret i UTC).
-> Dette virker bare fordi bronselaget allerede har gjort tallet om til et ekte tidspunkt med
-> `to_timestamp_ntz`. Den originale workshopen hadde i tillegg et `version = "2"`-filter for å
-> unngå dubletter — hos oss løste vi det med `QUALIFY` i bronse i stedet.
 
 </details>
 
@@ -647,31 +635,8 @@ from med_ukedag
 group by navn, ukedag, klokketime
 ```
 
-> 🔎 **Snowflake vs BigQuery:** BigQuery nummererer ukedager fra søndag (1) og trengte en
-> modulo-formel for norsk ukedag. I Snowflake gir **`DAYOFWEEKISO`** mandag = 1 … søndag = 7
-> direkte 🎉
-
 </details>
 
----
-
-## Snowflake vs BigQuery – jukselapp 🧾
-
-| BigQuery | Snowflake |
-|---|---|
-| `SELECT * EXCEPT(col)` | `SELECT * EXCLUDE (col)` |
-| `DATETIME(ts, "Europe/Oslo")` | `CONVERT_TIMEZONE('UTC', 'Europe/Oslo', ts)` |
-| `DATETIME_TRUNC(ts, HOUR)` | `DATE_TRUNC('HOUR', ts)` |
-| `EXTRACT(HOUR FROM ts)` | `HOUR(ts)` |
-| `EXTRACT(DAYOFWEEK FROM ts)` + modulo | `DAYOFWEEKISO(ts)` (man=1 … søn=7) |
-| `IF(a, b, c)` | `IFF(a, b, c)` |
-| `struct.field` (nøstet) | `"struct":field` (kolon-notasjon, evt. `::type`) |
-| kolonner er ikke case-sensitive | mikset-casing-kolonner må ha `"anførselstegn"` |
-| `TIMESTAMP_MICROS(n)` | `TO_TIMESTAMP_NTZ(n, 6)` (6 = mikrosekunder) |
-| `partition_by` i dbt-config | unødvendig — micro-partitions (evt. `cluster_by`) |
-| `QUALIFY` | `QUALIFY` — filtrer på vindusfunksjoner uten subquery |
-
----
 
 Da er du gjennom hele løypa — fra rå kildedata i bronse, via gjenbrukbare sølvprodukter, til
 spissede gullanalyser med tester og lineage. God tur videre med dbt 🪁
