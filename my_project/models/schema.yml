@@ -13,7 +13,11 @@ models:
     columns:
       - name: id
         description: "Unik id for strekningen."
-        # Fjern kommentarene under når bronse-modellen er ferdig, for å teste at id er unik og ikke null:
+        # 🧪 Fjern kommentarene under når bronse-modellen er ferdig. Dette er en
+        # fin fasit på dedupliseringen i oppgave 2.1b: testen PASSERER bare hvis
+        # du har fjernet duplikatene med QUALIFY (237 rader). Glemmer du det,
+        # feiler `unique` med 2347 rader — akkurat den feilen som ellers ville
+        # blåst opp joinen i oppgave 2.2.
         # data_tests:
         #   - unique
         #   - not_null

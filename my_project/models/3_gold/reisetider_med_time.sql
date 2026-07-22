@@ -19,12 +19,15 @@
 --       DATE_TRUNC('HOUR', publiseringstidspunkt)   -- gir f.eks. 14:00 for 14:35
 --     Kall kolonnen 'timesbolk' ('time' er et reservert ord i Snowflake).
 --   * AVG(reisetidVarighetSekunder) som reisetidGjennomsnitt
---   * COUNT(*) som antallFemMinutt  (hvor mange 5-min-målinger i timen)
+--   * COUNT(reisetidVarighetSekunder) som antallFemMinutt
+--     NB: bruk COUNT(kolonne), ikke COUNT(*)! Mange femminutter mangler måling
+--     (verdien er NULL), og de skal ikke telle som dekning. COUNT(kolonne)
+--     hopper over NULL — COUNT(*) teller alle radene.
 --   * GROUP BY timesbolk, strekningId, navn
 --
 -- NB! Oppgave 2.5.2: etter at du har skrevet testen (tests/reisetider_god_kvalitet.sql)
 -- vil den FEILE. Kom tilbake hit og filtrer vekk timer med for få målinger, f.eks.
 -- med en HAVING-linje (HAVING skal stå ETTER GROUP BY):
---       having count(*) > 9
+--       having count(reisetidVarighetSekunder) > 9
 
 select 1 as todo  -- ← bytt ut denne linja med din egen spørring

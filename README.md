@@ -39,13 +39,19 @@ Alt dette kan adresseres med transformasjonsverktøyet **dbt** ⚡️
 Du trenger Python 3.11+ og tilgangsdetaljer til Snowflake (brukernavn, passord og
 skjemanavn) fra arrangøren.
 
-**1. Klon repoet og lag et virtuelt miljø** (fra repo-rot):
+**1. Klon repoet og lag et virtuelt miljø:**
 
 ```bash
+git clone https://github.com/bekk/faggruppe-sommer-da-dbt.git
+cd faggruppe-sommer-da-dbt
+
 python3 -m venv dbt-venv
 source dbt-venv/bin/activate        # Windows: dbt-venv\Scripts\activate
 pip install -r requirements.txt
 ```
+
+> 💡 Pakkene er låst til versjonene workshopen er testet med (dbt 1.12 + Python 3.13).
+> Python 3.11–3.13 skal fungere fint.
 
 **2. Fyll inn din egen bruker i `my_project/profiles.yml`:**
 
@@ -56,8 +62,14 @@ pip install -r requirements.txt
 ```
 
 > ⚠️ **Ikke** sett `schema` til `RAW`. Det er **kildeskjemaet** med rådata som alle leser fra.
-> Dine egne modeller skal bygges i **ditt eget** skjema. dbt oppretter skjemaet automatisk
-> første gang du kjører `dbt run`.
+> Dine egne modeller skal bygges i **ditt eget** skjema.
+
+> 🔐 **Ikke commit passordet ditt!** `profiles.yml` ligger i git som en mal, så endringene dine
+> vil dukke opp i `git status`. La dem ligge lokalt. Vil du at git skal slutte å mase om fila:
+>
+> ```bash
+> git update-index --skip-worktree my_project/profiles.yml
+> ```
 
 **3. Test tilkoblingen:**
 
@@ -68,7 +80,63 @@ dbt debug
 
 Får du `All checks passed!`, er du klar 🎉
 
-### 🔤 Én ting du bør vite om rådataen: casing
+---
+
+## 🏠 Lag ditt eget skjema i Snowflake
+
+Alle deltakerne deler den samme databasen (`FAGGRUPPE_DB`), men **hver av dere bygger i sitt
+eget skjema**. Et skjema i Snowflake er som en mappe inni databasen — det er der tabellene og
+viewene dine havner. Slik unngår vi at vi overskriver hverandres tabeller (det var derfor den
+originale BigQuery-workshopen prefikset alle modellnavn med `<ditt_navn>` — med eget skjema
+slipper vi det, og modellene kan hete det de faktisk heter 🤠).
+
+Velg et navn som er ditt, f.eks. `WORKSHOP_OLA`.
+
+### Alternativ A: la dbt lage det for deg (enklest ✅)
+
+dbt oppretter skjemaet automatisk første gang du kjører `dbt run`, så lenge brukeren din har
+rettigheten `CREATE SCHEMA` (det har du fått av arrangøren). Da trenger du bare å sette
+`schema:` i `profiles.yml` — ferdig.
+
+### Alternativ B: lag det selv i Snowflake
+
+Vil du se hva som skjer under panseret, kan du lage det manuelt. Logg inn i
+[Snowsight](https://app.snowflake.com), åpne et **SQL Worksheet** og kjør:
+
+```sql
+use role workshop;
+use database faggruppe_db;
+
+-- Lag ditt eget skjema (bytt OLA med ditt eget navn):
+create schema if not exists faggruppe_db.workshop_ola;
+
+-- Sjekk at det ble laget:
+show schemas in database faggruppe_db;
+```
+
+Skjemanavnet du velger her må være **det samme** som du skriver i `schema:` i
+`my_project/profiles.yml`.
+
+### Sjekk at du bygger riktig sted
+
+Etter første `dbt run` kan du verifisere at modellene dine faktisk havnet i ditt skjema:
+
+```sql
+show tables in schema faggruppe_db.workshop_ola;
+show views  in schema faggruppe_db.workshop_ola;
+```
+
+> 💡 **Rydde opp etterpå?** `drop schema if exists faggruppe_db.workshop_ola cascade;` fjerner
+> skjemaet og alt du har bygget i det. (Ikke gjør dette med `RAW`!)
+
+---
+
+## 🔎 Bli kjent med rådataen
+
+Rådataen er ekte og litt rå. To ting kommer til å overraske deg — og begge er jobber for
+**bronselaget**.
+
+### 🔤 Casing: kolonnenavnene har store og små bokstaver
 
 Rådataen ligger i `FAGGRUPPE_DB.RAW`, lastet inn fra Parquet-filer. Snowflake laget da
 kolonnene med **nøyaktig samme store/små bokstaver** som i filene, f.eks. `strekningId`. Slike
@@ -82,7 +150,28 @@ select strekningId   from raw.reisetider;   -- ❌ Snowflake leter etter STREKNI
 Derfor gjør vi det ryddige én gang i **bronselaget**: vi gir hver rå-kolonne et rent alias, og
 etter det slipper vi anførselstegn i sølv og gull.
 
-### Prosjektstruktur
+### ⏰ Tidspunktene er tall, ikke tidspunkter
+
+Tidskolonnene (`reisetider.publiseringstidspunkt` og `timetrafikk.from`) kom ikke over som
+tidspunkter, men som **tall** — mikrosekunder siden 1970:
+
+```sql
+select "publiseringstidspunkt" from raw.reisetider limit 1;   -- 1574902222000000 🤨
+```
+
+Prøver du å regne på det som et tidspunkt, får du en feilmelding:
+`Invalid argument types for function 'CONVERT_TIMEZONE'`. Løsningen er `TO_TIMESTAMP_NTZ` med
+skala `6` (= mikrosekunder), og også dette hører hjemme i **bronse**:
+
+```sql
+to_timestamp_ntz("publiseringstidspunkt", 6)   -- 2019-11-28 00:50:22 ✅
+```
+
+> 🔎 Tidspunktene er lagret i **UTC**. Vi konverterer til norsk tid i sølvlaget.
+
+---
+
+## Prosjektstruktur
 
 ```
 my_project/
@@ -112,6 +201,13 @@ en `SELECT` som henter kolonnene vi trenger og gir dem rene alias (jf. casing-bo
 Vi trenger: `publiseringstidspunkt`, `strekningId`, `reisetidType`, `reisetidVarighetSekunder`,
 `reisetidFriFlytVarighetSekunder`, `reisetidHastighetKmPerTime`.
 
+Husk **begge** opprydningsjobbene fra boksene over: rene alias (casing) **og**
+`to_timestamp_ntz(..., 6)` på tidspunktet.
+
+> 💸 Rådataen har 121 millioner rader (2017–2022). For at workshopen skal gå raskt begrenser
+> vi oss til **2022** med en `where`-linje nederst. Da bygger hele løypa på under 10 sekunder
+> i stedet for et par minutter — og alle deltakerne deler på det samme lille warehouset.
+
 > 🚨 **NB!** Ikke referer til `RAW.reisetider` direkte — bruk
 > [`source()`-funksjonen](https://docs.getdbt.com/reference/dbt-jinja-functions/source) så dbt
 > forstår avhengigheten (lineage). Kilden heter `reisetider_raw` i dbt (den peker på
@@ -129,18 +225,21 @@ Vi trenger: `publiseringstidspunkt`, `strekningId`, `reisetidType`, `reisetidVar
 }}
 
 select
-    "publiseringstidspunkt"            as publiseringstidspunkt,
+    to_timestamp_ntz("publiseringstidspunkt", 6) as publiseringstidspunkt,
     "strekningId"                      as strekningId,
     "reisetidType"                     as reisetidType,
     "reisetidVarighetSekunder"         as reisetidVarighetSekunder,
     "reisetidFriFlytVarighetSekunder"  as reisetidFriFlytVarighetSekunder,
     "reisetidHastighetKmPerTime"       as reisetidHastighetKmPerTime
 from {{ source('svv', 'reisetider_raw') }}
+where to_timestamp_ntz("publiseringstidspunkt", 6) >= '2022-01-01'
 ```
+
+Modellen skal gi ca. **21,4 mill.** rader.
 
 > 🔎 Den originale BigQuery-workshopen castet `strekningId` til heltall her. I disse dataene er
 > både `reisetider.strekningId` og `strekninger.id` tekst, så vi lar dem være tekst og joiner
-> tekst mot tekst. Selve opprydningen (casing) er transformasjonen vår i bronse.
+> tekst mot tekst. Opprydningen vår i bronse er casing + tidskonvertering.
 
 </details>
 
@@ -150,6 +249,20 @@ from {{ source('svv', 'reisetider_raw') }}
 
 Gjør det samme for `strekninger`. Tabellen ligger allerede som kilde i `sources.yml`. Vi trenger
 `id`, `navn` og `versjon`. Skriv modellen i **`my_project/models/1_bronze/strekninger.sql`**.
+
+> ⚠️ **Her lurer en felle.** Tell radene først:
+>
+> ```sql
+> select count(*), count(distinct "id") from faggruppe_db.raw.strekninger;
+> -- 2347   |   237
+> ```
+>
+> Rådataen er **11 snapshots** av den samme strekningslista, tatt på ulike tidspunkt. Rydder du
+> ikke opp, får hver reisetid 11 treff i joinen i oppgave 2.2, og sølvtabellen blåser opp fra
+> 21 mill. til over 200 mill. rader 💥 Bronselaget rydder opp i dette også.
+>
+> Verktøyet er `QUALIFY` — en Snowflake-godbit som filtrerer på vindusfunksjoner, slik `HAVING`
+> gjør for `GROUP BY`.
 
 <details>
 <summary>💡 Løsningsforslag</summary>
@@ -166,7 +279,21 @@ select
     "navn"     as navn,
     "versjon"  as versjon
 from {{ source('svv', 'strekninger_raw') }}
+qualify row_number() over (
+    partition by "id" order by "publiseringstidspunkt" desc
+) = 1
 ```
+
+Modellen skal gi **237** rader — én per strekning.
+
+> 🔎 Hvorfor ikke bare filtrere på `versjon`? Fordi `versjon` er `'1'` for *alle* radene her.
+> Snapshotene skiller seg bare på `publiseringstidspunkt` og `kildefil`, så vi plukker den
+> nyeste raden per `id`. (Den originale BigQuery-workshopen løste et lignende problem med et
+> `version = "2"`-filter på reisetider — det datasettet var versjonert på en annen måte enn
+> dette.)
+>
+> 🧪 I `models/schema.yml` ligger det en `unique`-test på `id` som du kan skru på — den
+> passerer bare hvis du har deduplisert riktig.
 
 </details>
 
@@ -204,6 +331,11 @@ Join reisetider mot strekninger på `reisetider.strekningId = strekninger.id`.
 > 🚨 **NB!** Nå bygger vi videre på **andre modeller** (ikke kilder). Bruk
 > [`ref()`-funksjonen](https://docs.getdbt.com/reference/dbt-jinja-functions/ref).
 
+> 🔎 **Kjenner du BigQuery-versjonen?** Der la vi inn `partition_by = {...}` i config-blokken
+> for å partisjonere tabellen på dato. Det trenger vi ikke her: Snowflake deler automatisk
+> tabellene inn i **micro-partitions** og holder styr på dem selv. Vil du likevel styre
+> lagringen på store tabeller, heter tilsvarende knapp `cluster_by` i Snowflake.
+
 <details>
 <summary>💡 Løsningsforslag</summary>
 
@@ -227,10 +359,14 @@ where r.reisetidVarighetSekunder is null
    or r.reisetidVarighetSekunder / r.reisetidFriFlytVarighetSekunder < 70
 ```
 
+Modellen skal gi ca. **21,4 mill.** rader — altså like mange som bronsemodellen. Får du
+_vesentlig_ flere (200 mill.+), har du glemt å deduplisere `strekninger` i oppgave 2.1b 👆
+
 > 🔎 **Snowflake vs BigQuery:** BigQuery konverterer tidssone med `DATETIME(ts, "Europe/Oslo")`.
 > I Snowflake bruker vi `CONVERT_TIMEZONE('UTC', 'Europe/Oslo', ts)` (rådataen er lagret i UTC).
-> Merk også: den originale workshopen hadde et `version = "2"`-filter — den kolonnen finnes ikke
-> i disse dataene, så vi har droppet det.
+> Dette virker bare fordi bronselaget allerede har gjort tallet om til et ekte tidspunkt med
+> `to_timestamp_ntz`. Den originale workshopen hadde i tillegg et `version = "2"`-filter for å
+> unngå dubletter — hos oss løste vi det med `QUALIFY` i bronse i stedet.
 
 </details>
 
@@ -294,7 +430,19 @@ dbt seed
 
 Etterpå kan du referere til seeden med `ref('strekning_trp')`.
 
-> ℹ️ Verdiene i CSV-en er satt opp av arrangøren for de aktuelle strekningene.
+CSV-en kobler fem strekninger til trafikkregistreringspunktet som ligger på dem:
+
+| strekning | trp_id | punkt |
+|---|---|---|
+| Ryen - Teisen | `47408V625213` | E6 Teisen |
+| Teisen - Ryen | `47408V625213` | E6 Teisen (samme punkt, motsatt retning) |
+| Helsfyr - Karihaugen | `79854V625215` | E6 v/Karihaugen |
+| Sandvika - Holmen | `50089V578151` | Sandvika |
+| Kristianborg - Danmarksplass | `22439V804830` | Danmarksplass–sentrum |
+
+> ℹ️ Koblingen er satt opp manuelt av arrangøren. Legg merke til at de to første radene deler
+> samme `trp_id`: siden vi bruker **totaltrafikk** forbi punktet, får begge kjøreretninger
+> samme trafikktall.
 
 ### Oppgave 2.4.2: Koble timetrafikk til strekning
 
@@ -341,6 +489,11 @@ Skriv gullproduktet i **`my_project/models/3_gold/reisetider_med_time.sql`**.
 > `DATE_TRUNC('HOUR', publiseringstidspunkt)`. Vi kaller kolonnen `timesbolk` — `time` er et
 > reservert ord i Snowflake.
 
+> 🚨 Bruk `COUNT(reisetidVarighetSekunder)`, **ikke** `COUNT(*)`. Mange femminutter mangler
+> måling (verdien er `NULL`), og de skal ikke telle som dekning. `COUNT(kolonne)` hopper over
+> `NULL`, mens `COUNT(*)` teller alle radene — da ville en time uten en eneste måling framstått
+> som «full dekning» med `NULL` i snittet.
+
 <details>
 <summary>💡 Løsningsforslag</summary>
 
@@ -363,7 +516,7 @@ select
     timesbolk,
     strekningId,
     avg(reisetidVarighetSekunder) as reisetidGjennomsnitt,
-    count(*) as antallFemMinutt
+    count(reisetidVarighetSekunder) as antallFemMinutt
 from reisetider_med_time
 group by timesbolk, strekningId, navn
 ```
@@ -394,8 +547,8 @@ where antallFemMinutt < 10
 
 ### Oppgave 2.5.2: Rett opp feilen
 
-Oooops — testen feiler! Endre `reisetider_med_time` slik at testen består. Kjør deretter
-`dbt run -s reisetider_med_time` og `dbt test` på nytt.
+Oooops — testen feiler, med noen hundre tusen rader! Endre `reisetider_med_time` slik at testen
+består. Kjør deretter `dbt run -s reisetider_med_time` og `dbt test` på nytt.
 
 > 🚨 **NB!** Vi filtrerer nå vekk verdier — det gir større hull i tidsserien. Hvordan man
 > håndterer dette avhenger av analysen, men vi gjør det enkelt her.
@@ -407,7 +560,7 @@ Legg til en `HAVING`-linje nederst (etter `GROUP BY`):
 
 ```sql
 group by timesbolk, strekningId, navn
-having count(*) > 9
+having count(reisetidVarighetSekunder) > 9
 ```
 
 </details>
@@ -443,7 +596,7 @@ select
     r.timesbolk,
     r.strekningId,
     avg(r.reisetidVarighetSekunder) as reisetidGjennomsnitt,
-    count(*) as antallFemMinutt,
+    count(r.reisetidVarighetSekunder) as antallFemMinutt,
     t.trafikk
 from reisetider_med_time as r
 join {{ ref('timetrafikk_strekning') }} as t
@@ -514,6 +667,9 @@ group by navn, ukedag, klokketime
 | `IF(a, b, c)` | `IFF(a, b, c)` |
 | `struct.field` (nøstet) | `"struct":field` (kolon-notasjon, evt. `::type`) |
 | kolonner er ikke case-sensitive | mikset-casing-kolonner må ha `"anførselstegn"` |
+| `TIMESTAMP_MICROS(n)` | `TO_TIMESTAMP_NTZ(n, 6)` (6 = mikrosekunder) |
+| `partition_by` i dbt-config | unødvendig — micro-partitions (evt. `cluster_by`) |
+| `QUALIFY` | `QUALIFY` — filtrer på vindusfunksjoner uten subquery |
 
 ---
 

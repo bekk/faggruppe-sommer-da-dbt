@@ -5,8 +5,11 @@
 -- er skrevet ferdig for deg. Du trenger ikke endre den – bare referer til den
 -- med ref('timetrafikk') i oppgave 2.4.2.
 --
--- Legg merke til tre ting:
+-- Legg merke til fire ting:
 --   * "from" er et reservert ord i Snowflake -> må ha anførselstegn
+--   * "from" er et TALL (mikrosekunder siden 1970), akkurat som
+--     publiseringstidspunkt i reisetider. to_timestamp_ntz(..., 6) gjør det om
+--     til et ekte tidspunkt (i UTC).
 --   * "total":volumeNumbers:volume plukker ut ett tall inne i en nøstet struktur
 --     (kolon-notasjon for semistrukturerte felt), og ::integer caster det
 --   * Vi bruker TOTAL trafikk forbi punktet (begge retninger samlet). Den
@@ -21,6 +24,6 @@
 
 select
     "trpId"                                as trpId,
-    "from"                                 as tidspunkt,
+    to_timestamp_ntz("from", 6)            as tidspunkt,
     "total":volumeNumbers:volume::integer  as trafikk
 from {{ source('svv', 'timetrafikk_raw') }}
