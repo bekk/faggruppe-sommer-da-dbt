@@ -17,7 +17,7 @@
 --   * Bygg på ref('reisetider_med_trafikk')  (doble krøllparenteser)
 --   * Klokketime:  HOUR(timesbolk)
 --   * Ukedag (mandag=1 ... søndag=7): bruk DAYOFWEEKISO(timesbolk)
---       (Snowflake gjør her jobben BigQuery trengte en modulo-triks for.)
+--       (DAYOFWEEK starter på søndag — DAYOFWEEKISO gir deg norsk ukedag direkte.)
 --   * AVG(reisetidGjennomsnitt) og AVG(trafikk)
 --   * GROUP BY navn, ukedag, klokketime
 

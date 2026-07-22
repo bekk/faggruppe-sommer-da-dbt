@@ -84,9 +84,8 @@ Får du `All checks passed!`, er du klar 🎉
 
 Alle deltakerne deler den samme databasen (`FAGGRUPPE_DB`), men **hver av dere bygger i sitt
 eget skjema**. Et skjema i Snowflake er som en mappe inni databasen — det er der tabellene og
-viewene dine havner. Slik unngår vi at vi overskriver hverandres tabeller (det var derfor den
-originale BigQuery-workshopen prefikset alle modellnavn med `<ditt_navn>` — med eget skjema
-slipper vi det, og modellene kan hete det de faktisk heter 🤠).
+viewene dine havner. Slik unngår vi å overskrive hverandres tabeller, og modellene kan hete
+det de faktisk heter i stedet for å måtte prefikses med navnet ditt 🤠
 
 Velg et navn som er ditt, f.eks. `WORKSHOP_OLA`.
 
@@ -235,9 +234,8 @@ where to_timestamp_ntz("publiseringstidspunkt", 6) >= '2022-01-01'
 
 Modellen skal gi ca. **21,4 mill.** rader.
 
-> 🔎 Den originale BigQuery-workshopen castet `strekningId` til heltall her. I disse dataene er
-> både `reisetider.strekningId` og `strekninger.id` tekst, så vi lar dem være tekst og joiner
-> tekst mot tekst. Opprydningen vår i bronse er casing + tidskonvertering.
+> 🔎 Både `reisetider.strekningId` og `strekninger.id` er tekst i disse dataene, så vi lar dem
+> være tekst og joiner tekst mot tekst. Opprydningen vår i bronse er casing + tidskonvertering.
 
 </details>
 
@@ -286,9 +284,7 @@ Modellen skal gi **237** rader — én per strekning.
 
 > 🔎 Hvorfor ikke bare filtrere på `versjon`? Fordi `versjon` er `'1'` for *alle* radene her.
 > Snapshotene skiller seg bare på `publiseringstidspunkt` og `kildefil`, så vi plukker den
-> nyeste raden per `id`. (Den originale BigQuery-workshopen løste et lignende problem med et
-> `version = "2"`-filter på reisetider — det datasettet var versjonert på en annen måte enn
-> dette.)
+> nyeste raden per `id`.
 >
 > 🧪 I `models/schema.yml` ligger det en `unique`-test på `id` som du kan skru på — den
 > passerer bare hvis du har deduplisert riktig.
